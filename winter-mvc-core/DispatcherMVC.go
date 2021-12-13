@@ -130,10 +130,9 @@ func (dis *dispatcherHandler) HandlerFun() func (writer http.ResponseWriter, req
 		refValue := reflect.ValueOf(instance)
 		methodName := strings.TrimSpace(urlSplit[len(urlSplit)-1])
 		var refMethod reflect.Value
-		if reflect.Ptr == refValue.Kind(){
+		refMethod = refValue.MethodByName(methodName)
+		if !refMethod.IsValid() {
 			refMethod = refValue.Elem().MethodByName(methodName)
-		}else {
-			refMethod = refValue.MethodByName(methodName)
 		}
 
 		if !refMethod.IsValid() {
