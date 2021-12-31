@@ -1,4 +1,4 @@
-package winter_mvc_core
+package winterMvc
 
 import (
 	"encoding/json"
@@ -78,7 +78,7 @@ func (dis *dispatcherHandler) HandlerFun() func (writer http.ResponseWriter, req
 
 		if nil != dis.filter{
 			flag := dis.filter.Filter(writer,request)
-			if !flag{
+			if !flag {
 				return
 			}
 		}
@@ -211,7 +211,14 @@ func formToTypeValue(fiType reflect.Type,form map[string][]string) reflect.Value
 			tagJson := tf.Tag.Get("json")
 			for key,value := range form{
 				if key == tagJson{
-					v := stringToType(tf.Type.Name(),stringArrayToString(value))
+					if 0 == len(value) {
+						break
+					}
+					sv := stringArrayToString(value)
+					if "" == sv && tf.Type.Name() != "string"{
+						break
+					}
+					v := stringToType(tf.Type.Name(),sv)
 					stVal.Elem().Field(i).Set(reflect.ValueOf(v))
 					break
 				}
@@ -236,34 +243,61 @@ func stringToType(typeStr string,valueStr string) interface{}{
 	var e error
 	switch typeStr {
 	case "int":
+		if "" == valueStr {
+			return 0
+		}
 		data,e = strconv.Atoi(valueStr)
 	case "int8":
+		if "" == valueStr {
+			return 0
+		}
 		data,e = strconv.ParseInt(valueStr,10,8)
 		if nil == e{
 			data = data.(int8)
 		}
 	case "int16":
+		if "" == valueStr {
+			return 0
+		}
 		data,e = strconv.ParseInt(valueStr,10,16)
 		if nil == e{
 			data = data.(int16)
 		}
 	case "int32":
+		if "" == valueStr {
+			return 0
+		}
 		data,e = strconv.ParseInt(valueStr,10,32)
 		if nil == e{
 			data = data.(int32)
 		}
 	case "int64":
+		if "" == valueStr {
+			return 0
+		}
 		data,e = strconv.ParseInt(valueStr,10,64)
 	case "bool":
+		if "" == valueStr {
+			return false
+		}
 		data,e = strconv.ParseBool(valueStr)
 	case "float32":
+		if "" == valueStr {
+			return 0
+		}
 		data,e = strconv.ParseFloat(valueStr,32)
 		if nil == e {
 			data = float32(data.(float64))
 		}
 	case "float64":
+		if "" == valueStr {
+			return 0
+		}
 		data,e = strconv.ParseFloat(valueStr,64)
 	case "string":
+		if "" == valueStr {
+			return ""
+		}
 		data = valueStr
 	case "Time":
 		if 10 == len(valueStr){

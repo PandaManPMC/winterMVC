@@ -1,4 +1,4 @@
-package winter_mvc_core
+package winterMvc
 
 import "net/http"
 
