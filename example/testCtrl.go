@@ -1,0 +1,73 @@
+package example
+
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+)
+
+type testCtrl struct {
+}
+var testCtrlInstance testCtrl
+func GetInstanceByTestCtrl() *testCtrl{
+	return &testCtrlInstance
+}
+
+func (t *testCtrl) QueryList() result{
+	fmt.Println("调用了 QueryList 方法")
+	r := resultNewSuccess("成功 QueryList",111111111111111)
+	fmt.Println("QueryList 响应：",r)
+	return r
+}
+
+func (t *testCtrl) QueryListMap(params map[string]string) result{
+	fmt.Println("调用了 QueryListMap 方法")
+
+	idc := params["IdCategory"]
+	fmt.Println("idc=",idc)
+	if "" != idc {
+		iint,_ := strconv.ParseInt(idc,10,64)
+		fmt.Println("成功得到值=",iint)
+	}
+
+	r := resultNewSuccess("成功 QueryListMap",params)
+	fmt.Println("QueryListMap 响应：",r)
+	return r
+}
+
+func (t *testCtrl) QueryListWR(w http.ResponseWriter, request *http.Request) result{
+	fmt.Println("调用了 QueryListWR 方法")
+	fo := request.Form
+	fmt.Println(fo)
+	r := resultNewSuccess("成功  QueryListWR",fo)
+	fmt.Println("QueryListWR 响应：",r)
+	return r
+}
+
+type dog struct {
+	Name string	`json:"name" table:"name_name"`
+	Age int	`json:"age"`
+	Fighting float32 `json:"fighting"`
+	Activity bool `json:"activity"`
+	InDate time.Time `json:"inDate"`
+}
+
+func (t *testCtrl) QueryListStruct(dg dog) result{
+	fmt.Println("调用了 QueryListStruct 方法")
+	fmt.Println(dg)
+	r := resultNewSuccess("成功  QueryListStruct",dg)
+	fmt.Println("QueryListStruct 响应：",r)
+	return r
+}
+
+func (t *testCtrl) QueryListStructWR(dg dog,w http.ResponseWriter, request *http.Request) result{
+	fmt.Println("调用了 QueryListStructWR 方法")
+	fmt.Println(dg)
+	head := request.Header
+	fmt.Println(head)
+	w.Header().Set("testHeader","test response header")
+	r := resultNewSuccess("成功  QueryListStructWR",dg)
+	fmt.Println("QueryListStructWR 响应：",r)
+	return r
+}
