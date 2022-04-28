@@ -39,7 +39,7 @@ func TestMVC(t *testing.T){
 	//	启动http服务 方式1
 	//http.HandleFunc("/winterMvc/", mvc.HandlerFun())
 	//http.Handle("/favicon.ico",http.FileServer(http.Dir("./web/img")))
-	//http.ListenAndServe(":18080",nil)
+	//http.ListenAndServe(":7080",nil)
 
 	//	启动http服务 方式2
 	maxHeaderBytes := 1024 * 1024 * 20
