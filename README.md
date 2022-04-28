@@ -2,9 +2,7 @@
     基于go http 封装 简洁的web服务器框架
     无须任何外部依赖，只需导入 winterMVC    
 
-    go get github.com/PandaManPMC/winterMVC@v1.0.2    
-
-
+    go get github.com/PandaManPMC/winterMVC@v1.0.2
 
 ### 测试
     
@@ -21,6 +19,9 @@
     //	http://localhost:7080/example/test/QueryListStructWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
 
 ### 配置
+
+    import "github.com/PandaManPMC/winterMVC"
+    mvc := winterMVC.GetInstanceByDispatcherHandler()
 
 	mvc := winterMVC.GetInstanceByDispatcherHandler()
 	projectPrefix := "example"
