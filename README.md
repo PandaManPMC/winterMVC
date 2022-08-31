@@ -1,8 +1,8 @@
-# winterMvc
+# winterMvc v1.0.3
     基于go http 封装 简洁的web服务器框架
     无须任何外部依赖，只需导入 winterMVC    
 
-    go get github.com/PandaManPMC/winterMVC@v1.0.2
+    go get github.com/PandaManPMC/winterMVC@v1.0.3
 
 ### 测试
     
@@ -41,6 +41,10 @@
 	var fail failureResp
 	mvc.SetFailureResponse(fail)
 
+	//  配置日志输出
+	var lo logs
+	mvc.SetLogs(&lo)
+
 ### 启动服务
 
 	启动http服务 方式1
@@ -70,7 +74,7 @@
 
     //  不接收任何参数
     func (t *testCtrl) QueryList() result{}
-    //  接收map[string]string参数
+    //  接收 map[string]string参数
     func (t *testCtrl) QueryList2(params map[string]string) result{}
     //  接收 w http.ResponseWriter, request *http.Request
     func (t *testCtrl) QueryList3(w http.ResponseWriter, request *http.Request) result{}
@@ -78,6 +82,24 @@
     func (t *testCtrl) QueryList4(t structType) result{}
     //  接收三个参数 struct， w http.ResponseWriter, request *http.Request
     func (t *testCtrl) QueryList5(t structType,w http.ResponseWriter, request *http.Request) result{}
+
+> 支持 application/json 和 application/x-www-form-urlencoded 参数的自动封装。
+> time.Time 类型只支持 rfc3339 格式，如 【2022-08-31T09:08:29.837820+00:00】，时间转为时间戳传递更方便。
+> w http.ResponseWriter, request *http.Request 和一个自由参数可以不用放置考虑顺序。
+
+> - application/json 格式如下
+```json
+	{
+		"category": "哺乳",
+		"dog": {
+			"name": "黑子",
+				"age": 88,
+				"fighting": 33.22,
+				"activity": true,
+				"inDate": "2022-08-31T09:08:29.837820+00:00"
+		}
+	}
+```
 
 
 ### 过滤器 HttpFilterInterface

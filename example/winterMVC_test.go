@@ -36,6 +36,7 @@ func TestMVC(t *testing.T) {
 	var fail failureResp
 	mvc.SetFailureResponse(fail)
 
+	//  配置日志输出
 	var lo logs
 	mvc.SetLogs(&lo)
 
@@ -47,8 +48,7 @@ func TestMVC(t *testing.T) {
 	//	启动http服务 方式2
 	maxHeaderBytes := 1024 * 1024 * 20
 	server := http.Server{
-		//Addr: ":7080",
-		Addr: ":16818",
+		Addr: ":7080",
 		//Handler: mvc,
 		ReadTimeout:    time.Second * 60,
 		WriteTimeout:   time.Second * 60,
