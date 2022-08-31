@@ -2,10 +2,10 @@ package example
 
 import (
 	"fmt"
+	winterMVC "github.com/PandaManPMC/winterMVC"
 	"net/http"
 	"testing"
 	"time"
-	"winterMVC"
 )
 
 //	测试
@@ -15,18 +15,18 @@ import (
 //	http://localhost:7080/example/test/QueryListWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
 //	http://localhost:7080/example/test/QueryListStruct?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
 //	http://localhost:7080/example/test/QueryListStructWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
-func TestMVC(t *testing.T){
+func TestMVC(t *testing.T) {
 
 	//	获得mvc控制器 实例
 	mvc := winterMVC.GetInstanceByDispatcherHandler()
 	projectPrefix := "example"
 	testC := GetInstanceByTestCtrl()
 	//	存入控制器
-	mvc.RouteCtrl(projectPrefix,"test",&testC)
+	mvc.RouteCtrl(projectPrefix, "test", testC)
 
 	//	配置拦截器
 	var inter myInterceptor
-	mvc.RouteProjectInterceptor(projectPrefix,inter)
+	mvc.RouteProjectInterceptor(projectPrefix, inter)
 
 	//	配置过滤器
 	var f filter
@@ -36,6 +36,9 @@ func TestMVC(t *testing.T){
 	var fail failureResp
 	mvc.SetFailureResponse(fail)
 
+	var lo logs
+	mvc.SetLogs(&lo)
+
 	//	启动http服务 方式1
 	//http.HandleFunc("/winterMvc/", mvc.HandlerFun())
 	//http.Handle("/favicon.ico",http.FileServer(http.Dir("./web/img")))
@@ -44,21 +47,15 @@ func TestMVC(t *testing.T){
 	//	启动http服务 方式2
 	maxHeaderBytes := 1024 * 1024 * 20
 	server := http.Server{
-		Addr: ":7080",
+		//Addr: ":7080",
+		Addr: ":16818",
 		//Handler: mvc,
-		ReadTimeout: time.Second * 60,
-		WriteTimeout: time.Second * 60,
-		IdleTimeout: time.Second * 60,
+		ReadTimeout:    time.Second * 60,
+		WriteTimeout:   time.Second * 60,
+		IdleTimeout:    time.Second * 60,
 		MaxHeaderBytes: maxHeaderBytes,
 	}
-	http.Handle("/favicon.ico",http.FileServer(http.Dir("./web/img")))
-	http.Handle("/",mvc)
+	http.Handle("/favicon.ico", http.FileServer(http.Dir("./web/img")))
+	http.Handle("/", mvc)
 	fmt.Println(server.ListenAndServe())
 }
-
-
-
-
-
-
-
