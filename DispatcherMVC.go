@@ -340,7 +340,7 @@ func stringToType(typeStr string, valueStr string) interface{} {
 		}
 		data, e = strconv.ParseInt(valueStr, 10, 8)
 		if nil == e {
-			data = data.(int8)
+			data = int8(data.(int64))
 		}
 	case "uint8":
 		if "" == valueStr {
@@ -348,7 +348,7 @@ func stringToType(typeStr string, valueStr string) interface{} {
 		}
 		data, e = strconv.ParseUint(valueStr, 10, 8)
 		if nil == e {
-			data = data.(uint8)
+			data = uint8(data.(uint64))
 		}
 	case "int16":
 		if "" == valueStr {
@@ -356,7 +356,7 @@ func stringToType(typeStr string, valueStr string) interface{} {
 		}
 		data, e = strconv.ParseInt(valueStr, 10, 16)
 		if nil == e {
-			data = data.(int16)
+			data = int16(data.(int64))
 		}
 	case "uint16":
 		if "" == valueStr {
@@ -364,7 +364,7 @@ func stringToType(typeStr string, valueStr string) interface{} {
 		}
 		data, e = strconv.ParseUint(valueStr, 10, 16)
 		if nil == e {
-			data = data.(uint16)
+			data = uint16(data.(uint64))
 		}
 	case "int32":
 		if "" == valueStr {
@@ -372,7 +372,7 @@ func stringToType(typeStr string, valueStr string) interface{} {
 		}
 		data, e = strconv.ParseInt(valueStr, 10, 32)
 		if nil == e {
-			data = data.(int32)
+			data = int32(data.(int64))
 		}
 	case "uint32":
 		if "" == valueStr {
@@ -380,7 +380,7 @@ func stringToType(typeStr string, valueStr string) interface{} {
 		}
 		data, e = strconv.ParseUint(valueStr, 10, 32)
 		if nil == e {
-			data = data.(uint32)
+			data = uint32(data.(uint64))
 		}
 	case "int64":
 		if "" == valueStr {
