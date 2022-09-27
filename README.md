@@ -1,8 +1,8 @@
-# winterMvc v1.0.3
+# winterMvc v1.0.4
     基于go http 封装 简洁的web服务器框架
     无须任何外部依赖，只需导入 winterMVC    
 
-    go get github.com/PandaManPMC/winterMVC@v1.0.3
+    go get github.com/PandaManPMC/winterMVC@v1.0.4
 
 ### 测试
     
