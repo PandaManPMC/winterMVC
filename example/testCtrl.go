@@ -48,8 +48,8 @@ func (t *testCtrl) QueryListWR(w http.ResponseWriter, request *http.Request) res
 }
 
 type dog struct {
-	Name     string    `json:"name" table:"name_name"`
-	Age      int       `json:"age"`
+	Name     string    `json:"name" table:"name_name" required:"true"`
+	Age      int       `json:"age" required:"true"`
 	Fighting float32   `json:"fighting"`
 	Activity bool      `json:"activity"`
 	InDate   time.Time `json:"inDate"` // 只支持 rfc3339 格式，如 【2022-08-31T09:08:29.837820+00:00】

@@ -2,6 +2,7 @@ package winterMVC
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -18,6 +19,7 @@ type dispatcherHandler struct {
 	filter                    HttpFilterInterface
 	failure                   FailureResponseInterface
 	logs                      LogsInterface
+	parameterError            ParameterErrorInterface
 }
 
 var dispatcherHandlerInstance dispatcherHandler
@@ -84,6 +86,12 @@ func (dis *dispatcherHandler) SetHttpFilter(filter HttpFilterInterface) {
 //	实现	FailureResponseInterface 接口，出现错误回调Failure404()、Failure500()
 func (dis *dispatcherHandler) SetFailureResponse(failure FailureResponseInterface) {
 	dis.failure = failure
+}
+
+//	SetParameterError 参数装载发生错误的回调
+//	callback ParameterErrorInterface 回调，实现 ParameterErrorInterface
+func (dis *dispatcherHandler) SetParameterError(callback ParameterErrorInterface) {
+	dis.parameterError = callback
 }
 
 func (dis dispatcherHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -183,7 +191,13 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 		methodParams := make([]reflect.Value, numIn)
 
 		if 0 != numIn {
-			requestParams(writer, request, &methodParams, refMtdType)
+			if err := requestParams(writer, request, &methodParams, refMtdType); nil != err {
+				logError(err.Error(), nil)
+				if nil != dis.parameterError {
+					dis.parameterError.ParameterError(writer, request, err)
+				}
+				return
+			}
 		}
 		// 响应
 		result := refMethod.Call(methodParams)
@@ -205,7 +219,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 }
 
 //	requestParams 请求参数封装
-func requestParams(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, refMtdType reflect.Type) {
+func requestParams(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, refMtdType reflect.Type) error {
 	for i := 0; i < refMtdType.NumIn(); i++ {
 		inType := refMtdType.In(i)
 		switch inType.String() {
@@ -214,30 +228,61 @@ func requestParams(writer http.ResponseWriter, request *http.Request, methodPara
 		case "http.ResponseWriter":
 			(*methodParams)[i] = reflect.ValueOf(writer)
 		default:
-			requestToData(request, methodParams, inType, i)
+			return requestToData(request, methodParams, inType, i)
 		}
 	}
+	return nil
 }
 
 // requestToData request 中参数封装进结构体或 map，支持 Content-Type 【application/json || application/x-www-form-urlencoded】
-func requestToData(request *http.Request, methodParams *[]reflect.Value, inType reflect.Type, index int) {
+func requestToData(request *http.Request, methodParams *[]reflect.Value, inType reflect.Type, index int) error {
 	if ContentTypeIsJSON(request) {
 		// 以 【application/json】
 		defer request.Body.Close()
 		buf, err := ioutil.ReadAll(request.Body)
 		if nil != err {
 			logError("requestToData", err)
-			return
+			return errors.New("request to data failure")
 		}
 		obj := reflect.New(inType)
-		json.Unmarshal(buf, obj.Interface())
+		if err := json.Unmarshal(buf, obj.Interface()); nil != err {
+			logError("requestToData", err)
+			return errors.New("request to json Unmarshal data failure")
+		}
 		(*methodParams)[index] = obj.Elem()
+
+		mp := make(map[string]interface{})
+		json.Unmarshal(buf, &mp)
+		return requiredJSON(obj, mp)
 	} else {
 		// 其它-以 form 形式读取参数 【application/x-www-form-urlencoded】
 		request.ParseForm()
 		form := request.Form
-		(*methodParams)[index] = formToTypeValue(inType, form)
+		var err error
+		if (*methodParams)[index], err = formToTypeValue(inType, form); nil != err {
+			return err
+		}
 	}
+	return nil
+}
+
+func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
+	beanElem := bean.Elem()
+	num := beanElem.NumField()
+	t := beanElem.Type()
+	for i := 0; i < num; i++ {
+		f := t.Field(i)
+		rd := f.Tag.Get("required")
+		if "true" == rd {
+			//field := beanElem.Field(i)
+			json := f.Tag.Get("json")
+			_, isExist := mp[json]
+			if !isExist {
+				return errors.New(fmt.Sprintf("missing required parameters by %s", json))
+			}
+		}
+	}
+	return nil
 }
 
 func ContentTypeIsJSON(request *http.Request) bool {
@@ -268,7 +313,7 @@ func failure404(failure FailureResponseInterface, writer http.ResponseWriter, re
 //	fiType reflect.Type	类型,map、struct支持，其它都为string
 //	form map[string][]string 数据源 如request.Form
 //	reflect.Value	值
-func formToTypeValue(fiType reflect.Type, form map[string][]string) reflect.Value {
+func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Value, error) {
 	fiTypeKind := fiType.Kind()
 	switch fiTypeKind {
 	case reflect.Map:
@@ -276,7 +321,7 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) reflect.Valu
 		for key, values := range form {
 			valMap[key] = stringArrayToString(values)
 		}
-		return reflect.ValueOf(valMap)
+		return reflect.ValueOf(valMap), nil
 	case reflect.Struct:
 		stVal := reflect.New(fiType)
 		stType := stVal.Type()
@@ -285,28 +330,46 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) reflect.Valu
 		for i := 0; i < numFiled; i++ {
 			tf := stElem.Field(i)
 			tagJson := tf.Tag.Get("json")
-			for key, value := range form {
-				if key == tagJson {
-					if 0 == len(value) {
-						break
-					}
-					sv := stringArrayToString(value)
-					if "" == sv && tf.Type.Name() != "string" {
-						break
-					}
-					v := stringToType(tf.Type.Name(), sv)
-					stVal.Elem().Field(i).Set(reflect.ValueOf(v))
-					break
+			required := tf.Tag.Get("required")
+
+			value, isExist := form[tagJson]
+			if !isExist {
+				if "true" == required {
+					return stVal, errors.New(fmt.Sprintf("missing required parameters by %s", tagJson))
 				}
 			}
+			sv := stringArrayToString(value)
+			if "" == sv && tf.Type.Name() != "string" {
+				continue
+			}
+			v := stringToType(tf.Type.Name(), sv)
+			stVal.Elem().Field(i).Set(reflect.ValueOf(v))
+
+			//for key, value := range form {
+			//	if key == tagJson {
+			//		if 0 == len(value) {
+			//			if "true" == required {
+			//				return stVal, errors.New(fmt.Sprintf("missing required parameters %s", tagJson))
+			//			}
+			//			break
+			//		}
+			//		sv := stringArrayToString(value)
+			//		if "" == sv && tf.Type.Name() != "string" {
+			//			break
+			//		}
+			//		v := stringToType(tf.Type.Name(), sv)
+			//		stVal.Elem().Field(i).Set(reflect.ValueOf(v))
+			//		break
+			//	}
+			//}
 		}
-		return stVal.Elem()
+		return stVal.Elem(), nil
 	default:
 		vaList := ""
 		for _, values := range form {
 			vaList = stringArrayToString(values)
 		}
-		return reflect.ValueOf(vaList)
+		return reflect.ValueOf(vaList), nil
 	}
 }
 
@@ -424,6 +487,8 @@ func stringToType(typeStr string, valueStr string) interface{} {
 			data, e = time.Parse("2006-01-02 15:04", valueStr)
 		} else if 19 == len(valueStr) {
 			data, e = time.Parse("2006-01-02 15:04:05", valueStr)
+		} else {
+			//data, e = time.Parse("2006-01-02'T'15:04:05.999 Z", valueStr)
 		}
 		if nil != e {
 			e = nil

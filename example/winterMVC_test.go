@@ -11,10 +11,18 @@ import (
 //	测试
 //	访问方式	xxx:port/项目url/控制器映射键/方法名
 //	http://localhost:7080/example/test/QueryList
-//	http://localhost:7080/example/test/QueryListMap?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
-//	http://localhost:7080/example/test/QueryListWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
-//	http://localhost:7080/example/test/QueryListStruct?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
-//	http://localhost:7080/example/test/QueryListStructWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
+//	http://localhost:7080/example/test/QueryListMap?name=heih&age=99&activity=true&fighting=33.55&inDate=2022-08-31T09:08:29.837820+00:00
+//	http://localhost:7080/example/test/QueryListWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2022-08-31T09:08:29.837820+00:00
+//	http://localhost:7080/example/test/QueryListStruct?name=heih&age=99&activity=true&fighting=33.55&inDate=2022-08-31T09:08:29.837820+00:00
+//	http://localhost:7080/example/test/QueryListStructWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2022-08-31T09:08:29.837820+00:00
+
+//	POST 测试 Content-Type application/json
+//	http://localhost:7080/example/test/QueryListStruct
+//	{"name":"laoniqiu","age":0,"activity":true,"fighting":33.55,"inDate":"2022-08-31T09:08:29.837820+00:00"}
+
+//	POST 测试 Content-Type application/x-www-form-urlencoded
+//	time 类型可以传递 2006-01-02 15:04:05 格式，无法解析的格式会报错
+
 func TestMVC(t *testing.T) {
 
 	//	获得mvc控制器 实例
@@ -39,6 +47,9 @@ func TestMVC(t *testing.T) {
 	//  配置日志输出
 	var lo logs
 	mvc.SetLogs(&lo)
+
+	//	参数封装错误回调
+	mvc.SetParameterError(&ParameterErrorImp{})
 
 	//	启动http服务 方式1
 	//http.HandleFunc("/winterMvc/", mvc.HandlerFun())
