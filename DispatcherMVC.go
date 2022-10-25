@@ -273,10 +273,10 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 	for i := 0; i < num; i++ {
 		f := t.Field(i)
 		rd := f.Tag.Get("required")
+		json := f.Tag.Get("json")
+		val, isExist := mp[json]
 		if "true" == rd {
 			//field := beanElem.Field(i)
-			json := f.Tag.Get("json")
-			val, isExist := mp[json]
 			if !isExist {
 				return errors.New(fmt.Sprintf("missing required parameters by 【%s】", json))
 			}
@@ -287,8 +287,19 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 					s := val.(string)
 					minLen, _ := strconv.Atoi(min)
 					if minLen > StringToCharacterLen(s) {
-						return errors.New(fmt.Sprintf("The parameter 【%s】 length requires %d, your %d", json, minLen, StringToCharacterLen(s)))
+						return errors.New(fmt.Sprintf("Parameter 【%s】 minimum length of %d, your %d", json, minLen, StringToCharacterLen(s)))
 					}
+				}
+			}
+		}
+		// 最大值，作用于字符串即字符最大长度
+		max := f.Tag.Get("max")
+		if "" != max {
+			if "string" == f.Type.Name() {
+				s := val.(string)
+				maxLen, _ := strconv.Atoi(max)
+				if maxLen < StringToCharacterLen(s) {
+					return errors.New(fmt.Sprintf("parameter 【%s】 maximum length %d, yours %d", json, maxLen, StringToCharacterLen(s)))
 				}
 			}
 		}
@@ -370,7 +381,17 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Val
 				if "" != min {
 					minLen, _ := strconv.Atoi(min)
 					if minLen > StringToCharacterLen(sv) {
-						return stVal, errors.New(fmt.Sprintf("The parameter 【%s】 length requires %d, your %d", tagJson, minLen, StringToCharacterLen(sv)))
+						return stVal, errors.New(fmt.Sprintf("Parameter 【%s】 minimum length of %d, your %d", tagJson, minLen, StringToCharacterLen(sv)))
+					}
+				}
+			}
+
+			max := tf.Tag.Get("max")
+			if "" != max {
+				if "string" == tf.Type.Name() {
+					maxLen, _ := strconv.Atoi(max)
+					if maxLen < StringToCharacterLen(sv) {
+						return stVal, errors.New(fmt.Sprintf("parameter 【%s】 maximum length %d, yours %d", tagJson, maxLen, StringToCharacterLen(sv)))
 					}
 				}
 			}
