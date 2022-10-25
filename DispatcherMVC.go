@@ -276,13 +276,29 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 		if "true" == rd {
 			//field := beanElem.Field(i)
 			json := f.Tag.Get("json")
-			_, isExist := mp[json]
+			val, isExist := mp[json]
 			if !isExist {
-				return errors.New(fmt.Sprintf("missing required parameters by %s", json))
+				return errors.New(fmt.Sprintf("missing required parameters by 【%s】", json))
+			}
+			min := f.Tag.Get("min")
+			if "" != min {
+				// 最小值，作用于字符串长度
+				if "string" == f.Type.Name() {
+					s := val.(string)
+					minLen, _ := strconv.Atoi(min)
+					if minLen > StringToCharacterLen(s) {
+						return errors.New(fmt.Sprintf("The parameter 【%s】 length requires %d, your %d", json, minLen, StringToCharacterLen(s)))
+					}
+				}
 			}
 		}
 	}
 	return nil
+}
+
+//	StringToCharacterLen 获取字符串准确字符长度，而非字节长度
+func StringToCharacterLen(s string) int {
+	return len([]rune(s))
 }
 
 func ContentTypeIsJSON(request *http.Request) bool {
@@ -333,15 +349,32 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Val
 			required := tf.Tag.Get("required")
 
 			value, isExist := form[tagJson]
-			if !isExist {
-				if "true" == required {
-					return stVal, errors.New(fmt.Sprintf("missing required parameters by %s", tagJson))
+			if "true" == required {
+				if !isExist {
+					return stVal, errors.New(fmt.Sprintf("missing required parameters by 【%s】", tagJson))
+				}
+			} else {
+				if !isExist {
+					continue
 				}
 			}
+
 			sv := stringArrayToString(value)
-			if "" == sv && tf.Type.Name() != "string" {
+			if "" == sv && "string" != tf.Type.Name() {
 				continue
 			}
+
+			// 字符串类型校验长度
+			if "true" == required && "string" == tf.Type.Name() {
+				min := tf.Tag.Get("min")
+				if "" != min {
+					minLen, _ := strconv.Atoi(min)
+					if minLen > StringToCharacterLen(sv) {
+						return stVal, errors.New(fmt.Sprintf("The parameter 【%s】 length requires %d, your %d", tagJson, minLen, StringToCharacterLen(sv)))
+					}
+				}
+			}
+
 			v := stringToType(tf.Type.Name(), sv)
 			stVal.Elem().Field(i).Set(reflect.ValueOf(v))
 
