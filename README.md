@@ -9,7 +9,8 @@
     type ParameterErrorInterface interface {
         ParameterError(http.ResponseWriter, *http.Request, error)
     }
-    对于必传参数，还可以增加 tag 来确保它的最小和最大长度，如 min:"3" max:"6"，目前只作用于字符串，该参数字符长度不能少于 3 大于 6 ，而非字节长度。
+    对于必传参数，还可以增加 tag 来确保它的最小和最大长度，如 min:"3" max:"6"，目前只作用于字符串，该参数字符长度不能少于 3 大于 6，而非字节长度。
+    其中 min 只作用于 required 参数，max 则可以作用于非 required 参数。
 
 ### 测试
     
