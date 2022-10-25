@@ -1,8 +1,14 @@
-# winterMvc v1.0.4
+# winterMvc v1.0.5
     基于go http 封装 简洁的web服务器框架
     无须任何外部依赖，只需导入 winterMVC    
 
-    go get github.com/PandaManPMC/winterMVC@v1.0.4
+    go get github.com/PandaManPMC/winterMVC@v1.0.5
+
+    1.0.5 增加了结构体参数 required:"true"，客户端必须上传这个参数才能通过基础参数校验。
+    当未传必须参数时可以通过回调接口 ParameterErrorInterface 获知，如 mvc.SetParameterError(&ParameterErrorImp{})。
+    type ParameterErrorInterface interface {
+        ParameterError(http.ResponseWriter, *http.Request, error)
+    }
 
 ### 测试
     
@@ -17,6 +23,14 @@
     //	http://localhost:7080/example/test/QueryListWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
     //	http://localhost:7080/example/test/QueryListStruct?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
     //	http://localhost:7080/example/test/QueryListStructWR?name=heih&age=99&activity=true&fighting=33.55&inDate=2021-12-09%2014:10:55
+
+    //	POST 测试 Content-Type application/json
+    //	http://localhost:7080/example/test/QueryListStruct
+    //	{"name":"laoniqiu","age":0,"activity":true,"fighting":33.55,"inDate":"2022-08-31T09:08:29.837820+00:00"}
+    
+    //	POST 测试 Content-Type application/x-www-form-urlencoded
+    //	time 类型可以传递 2006-01-02 15:04:05 格式，无法解析的格式会报错
+
 
 ### 配置
 
@@ -44,6 +58,9 @@
 	//  配置日志输出
 	var lo logs
 	mvc.SetLogs(&lo)
+
+	//  参数封装错误回调
+	mvc.SetParameterError(&ParameterErrorImp{})
 
 ### 启动服务
 
