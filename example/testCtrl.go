@@ -48,7 +48,7 @@ func (t *testCtrl) QueryListWR(w http.ResponseWriter, request *http.Request) res
 }
 
 type dog struct {
-	Name     string    `json:"name" table:"name_name" required:"true" min:"3" max:"6"`
+	Name     string    `json:"name" table:"name_name" required:"true" min:"3" max:"6" trimSpace:"true"`
 	Age      int       `json:"age" required:"true"`
 	Fighting float32   `json:"fighting"`
 	Activity bool      `json:"activity"`

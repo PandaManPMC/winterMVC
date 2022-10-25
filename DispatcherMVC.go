@@ -275,6 +275,17 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 		rd := f.Tag.Get("required")
 		json := f.Tag.Get("json")
 		val, isExist := mp[json]
+
+		//	字符串默认去除首位空格
+		if "string" == f.Type.Name() {
+			trimSpace := f.Tag.Get("trimSpace")
+			if "false" != trimSpace {
+				field := beanElem.Field(i)
+				field.Set(reflect.ValueOf(strings.TrimSpace(field.String())))
+				val = strings.TrimSpace(val.(string))
+			}
+		}
+
 		if "true" == rd {
 			//field := beanElem.Field(i)
 			if !isExist {
@@ -373,6 +384,13 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Val
 			sv := stringArrayToString(value)
 			if "" == sv && "string" != tf.Type.Name() {
 				continue
+			}
+
+			if "string" == tf.Type.Name() {
+				trimSpace := tf.Tag.Get("trimSpace")
+				if "false" != trimSpace {
+					sv = strings.TrimSpace(sv)
+				}
 			}
 
 			// 字符串类型校验长度
