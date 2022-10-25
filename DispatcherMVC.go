@@ -228,7 +228,9 @@ func requestParams(writer http.ResponseWriter, request *http.Request, methodPara
 		case "http.ResponseWriter":
 			(*methodParams)[i] = reflect.ValueOf(writer)
 		default:
-			return requestToData(request, methodParams, inType, i)
+			if err := requestToData(request, methodParams, inType, i); nil != err {
+				return err
+			}
 		}
 	}
 	return nil
