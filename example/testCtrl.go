@@ -105,3 +105,22 @@ func (t *testCtrl) TestJSON2(am ami, w http.ResponseWriter) result {
 	fmt.Println(w)
 	return resultNewSuccess("成功  QueryListStructWR", am)
 }
+
+// TestJSONArray 测试结构体 json 数组
+func (t *testCtrl) TestJSONArray(arr []dog, w http.ResponseWriter) result {
+	//{
+	//	"category": "哺乳",
+	//	"dog": {
+	//		"name": "黑子",
+	//			"age": 88,
+	//			"fighting": 33.22,
+	//			"activity": true,
+	//			"inDate": "2022-08-31T09:08:29.837820+00:00"
+	//	}
+	//}
+
+	fmt.Println("调用了 TestJSON2 方法")
+	fmt.Println(arr)
+	fmt.Println(w)
+	return resultNewSuccess("成功  QueryListStructWR", arr)
+}

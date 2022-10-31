@@ -253,6 +253,9 @@ func requestToData(request *http.Request, methodParams *[]reflect.Value, inType 
 		}
 		(*methodParams)[index] = obj.Elem()
 
+		if reflect.Slice == inType.Kind() {
+			return nil
+		}
 		mp := make(map[string]interface{})
 		json.Unmarshal(buf, &mp)
 		return requiredJSON(obj, mp)
