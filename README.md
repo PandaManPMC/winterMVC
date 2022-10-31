@@ -1,8 +1,8 @@
-# winterMvc v1.0.9
+# winterMvc v1.0.10
     基于go http 封装 简洁的web服务器框架
     无须任何外部依赖，只需导入 winterMVC    
 
-    go get github.com/PandaManPMC/winterMVC@v1.0.9
+    go get github.com/PandaManPMC/winterMVC@v1.0.10
 
     1.0.6 增加了结构体参数 required:"true"，客户端必须上传这个参数才能通过基础参数校验。
     当未传必须参数时可以通过回调接口 ParameterErrorInterface 获知，如 mvc.SetParameterError(&ParameterErrorImp{})。
