@@ -7,12 +7,8 @@ import "net/http"
 type HttpFilterInterface interface {
 
 	//	Filter 过滤器
-	//	writer http.ResponseWriter
+	//	writer *http.ResponseWriter
 	//	request *http.Request
 	//	bool	true继续执行，false中断本次请求
-	Filter(writer http.ResponseWriter, request *http.Request) bool
+	Filter(writer *http.ResponseWriter, request *http.Request) bool
 }
-
-
-
-

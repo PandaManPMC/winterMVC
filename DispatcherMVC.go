@@ -119,7 +119,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 	return func(writer http.ResponseWriter, request *http.Request) {
 		defer deferRecover(dis, writer, request)
 		if nil != dis.filter {
-			flag := dis.filter.Filter(writer, request)
+			flag := dis.filter.Filter(&writer, request)
 			if !flag {
 				return
 			}
