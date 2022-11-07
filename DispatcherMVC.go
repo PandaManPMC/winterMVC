@@ -330,7 +330,7 @@ func StringToCharacterLen(s string) int {
 
 func ContentTypeIsJSON(request *http.Request) bool {
 	contentType := GetContentType(request)
-	if "application/json" == contentType {
+	if strings.Contains(contentType, "application/json") {
 		return true
 	}
 	return false
