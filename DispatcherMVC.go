@@ -282,7 +282,7 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 		val, isExist := mp[json]
 
 		//	字符串默认去除首位空格
-		if "string" == f.Type.Name() {
+		if "string" == f.Type.Name() && isExist {
 			trimSpace := f.Tag.Get("trimSpace")
 			if "false" != trimSpace {
 				field := beanElem.Field(i)
