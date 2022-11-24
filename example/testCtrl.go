@@ -16,6 +16,13 @@ func GetInstanceByTestCtrl() *testCtrl {
 	return &testCtrlInstance
 }
 
+func (t *testCtrl) GetList(request *http.Request) result {
+	fmt.Println("调用了 GetList 方法")
+	r := resultNewSuccess("成功 GetList", 111111111111111)
+	fmt.Println("QueryList 响应：", r)
+	return r
+}
+
 func (t *testCtrl) QueryList() result {
 	fmt.Println("调用了 QueryList 方法")
 	r := resultNewSuccess("成功 QueryList", 111111111111111)

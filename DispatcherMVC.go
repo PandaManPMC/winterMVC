@@ -308,6 +308,10 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 				}
 			}
 		}
+		if isExist {
+			// 非必传，如果值不存在，直接回退
+			continue
+		}
 		// 最大值，作用于字符串即字符最大长度
 		max := f.Tag.Get("max")
 		if "" != max {
