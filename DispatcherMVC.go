@@ -308,7 +308,7 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 				}
 			}
 		}
-		if isExist {
+		if !isExist {
 			// 非必传，如果值不存在，直接回退
 			continue
 		}
