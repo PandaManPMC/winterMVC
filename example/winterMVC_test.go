@@ -31,6 +31,8 @@ func TestMVC(t *testing.T) {
 	testC := GetInstanceByTestCtrl()
 	//	存入控制器
 	mvc.RouteCtrl(projectPrefix, "test", testC)
+	//	http://localhost:7080/v2/example/test2/GetList
+	mvc.RouteCtrl("v2/example", "test2", GetInstanceByTest2Ctrl())
 
 	//	配置拦截器
 	var inter myInterceptor
