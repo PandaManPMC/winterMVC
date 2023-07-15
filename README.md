@@ -1,23 +1,27 @@
 
 
 
-# winterMvc v1.0.13
-    基于go http 封装 简洁的web服务器框架
+# winterMvc 
+    基于 go http 封装 简洁的web服务器框架
     无须任何外部依赖，只需导入 winterMVC    
 
     go get github.com/PandaManPMC/winterMVC@v1.0.13
 
-    1.0.6 增加了结构体参数 required:"true"，客户端必须上传这个参数才能通过基础参数校验。
-    当未传必须参数时可以通过回调接口 ParameterErrorInterface 获知，如 mvc.SetParameterError(&ParameterErrorImp{})。
-    type ParameterErrorInterface interface {
-        ParameterError(http.ResponseWriter, *http.Request, error)
-    }
 
-> 结构体参数
-> - 结构体参数对于必传参数，还可以增加 tag 来确保它的最小和最大长度，如 min:"3" max:"6"，目前只作用于字符串，该参数字符长度不能少于 3 大于 6，而非字节长度。
+> 结构体字符串参数
+> - 结构体参数对于必传参数，还可以增加 tag 来确保它的最小和最大长度，如 min:"3" max:"6".该参数字符长度不能少于 3 大于 6，而非字节长度。
     其中 min 只作用于 required 参数，max 则可以作用于非 required 参数。
 > - 默认去除字符串参数的首尾空格，可以通过 tag 指定 trimSpace:"false" 来取消自动去除首尾空格，需要注意的是，min 和 max 是在这个操作之后执行的。
 
+### 1.0.17 
+
+> 增加字符串类型 XSS 过滤选项，开启 XSS 过滤时会对接口进行 XSS 过滤。
+> - 实现 XSSFilterInterface 接口，配置拦截器
+> - 如 example 中的 XSSFilterImplements
+
+```
+    mvc.SetXSSFilterInterface(&XSSFilterImplements{})
+```
 
 ### 1.0.13
 
@@ -25,6 +29,14 @@
 > - 如 v1/app/member/Login，则 projectUrl = v1/app 。
 
 > go 升级为 1.19
+
+### 1.0.6
+
+    1.0.6 增加了结构体参数 required:"true"，客户端必须上传这个参数才能通过基础参数校验。
+    当未传必须参数时可以通过回调接口 ParameterErrorInterface 获知，如 mvc.SetParameterError(&ParameterErrorImp{})。
+    type ParameterErrorInterface interface {
+        ParameterError(http.ResponseWriter, *http.Request, error)
+    }
 
 
 ### 测试

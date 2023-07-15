@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -20,6 +21,8 @@ type dispatcherHandler struct {
 	failure                   FailureResponseInterface
 	logs                      LogsInterface
 	parameterError            ParameterErrorInterface
+	xSSFilter                 XSSFilterInterface // XSS 过滤回调，如果没有设置则默认不拦截
+	xSSPassUrlLst             []string           // 不过滤 XSS URL 列表
 }
 
 var dispatcherHandlerInstance dispatcherHandler
@@ -27,6 +30,7 @@ var dispatcherHandlerInstance dispatcherHandler
 func init() {
 	dispatcherHandlerInstance.routeMapping = make(map[string]map[string]interface{})
 	dispatcherHandlerInstance.handlerInterceptorMapping = make(map[string]HandlerInterceptorInterface)
+	dispatcherHandlerInstance.xSSPassUrlLst = make([]string, 0)
 }
 
 // GetInstanceByDispatcherHandler 获取 MVC 实例
@@ -41,6 +45,26 @@ func GetInstanceByDispatcherHandler() *dispatcherHandler {
 // SetLogs 配置日志输出
 func (dis *dispatcherHandler) SetLogs(log LogsInterface) {
 	dis.logs = log
+}
+
+// SetXSSFilterInterface 设置 xss 拦截接口
+func (dis *dispatcherHandler) SetXSSFilterInterface(xf XSSFilterInterface) {
+	dis.xSSFilter = xf
+}
+
+// AddXSSPassUrl 添加不过滤的 URL
+func (dis *dispatcherHandler) AddXSSPassUrl(url string) {
+	dis.xSSPassUrlLst = append(dis.xSSPassUrlLst, url)
+}
+
+// IsXSSPassUrl 是不过滤的 xss url 则返回 true
+func (dis *dispatcherHandler) IsXSSPassUrl(url string) bool {
+	for _, v := range dis.xSSPassUrlLst {
+		if v == url {
+			return true
+		}
+	}
+	return false
 }
 
 func logInfo(msg string) {
@@ -94,7 +118,7 @@ func (dis *dispatcherHandler) SetParameterError(callback ParameterErrorInterface
 	dis.parameterError = callback
 }
 
-func (dis dispatcherHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (dis *dispatcherHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	dis.HandlerFun()(writer, request)
 }
 
@@ -206,7 +230,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 		methodParams := make([]reflect.Value, numIn)
 
 		if 0 != numIn {
-			if err := requestParams(writer, request, &methodParams, refMtdType); nil != err {
+			if err := dis.requestParams(writer, request, &methodParams, refMtdType, path); nil != err {
 				logError(err.Error(), nil)
 				if nil != dis.parameterError {
 					dis.parameterError.ParameterError(writer, request, err)
@@ -234,7 +258,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 }
 
 // requestParams 请求参数封装
-func requestParams(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, refMtdType reflect.Type) error {
+func (dis *dispatcherHandler) requestParams(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, refMtdType reflect.Type, path string) error {
 	for i := 0; i < refMtdType.NumIn(); i++ {
 		inType := refMtdType.In(i)
 		switch inType.String() {
@@ -243,7 +267,7 @@ func requestParams(writer http.ResponseWriter, request *http.Request, methodPara
 		case "http.ResponseWriter":
 			(*methodParams)[i] = reflect.ValueOf(writer)
 		default:
-			if err := requestToData(request, methodParams, inType, i); nil != err {
+			if err := dis.requestToData(writer, request, methodParams, inType, i, path); nil != err {
 				return err
 			}
 		}
@@ -252,11 +276,11 @@ func requestParams(writer http.ResponseWriter, request *http.Request, methodPara
 }
 
 // requestToData request 中参数封装进结构体或 map，支持 Content-Type 【application/json || application/x-www-form-urlencoded】
-func requestToData(request *http.Request, methodParams *[]reflect.Value, inType reflect.Type, index int) error {
+func (dis *dispatcherHandler) requestToData(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, inType reflect.Type, index int, path string) error {
 	if ContentTypeIsJSON(request) {
 		// 以 【application/json】
 		defer request.Body.Close()
-		buf, err := ioutil.ReadAll(request.Body)
+		buf, err := io.ReadAll(request.Body)
 		if nil != err {
 			logError("requestToData", err)
 			return errors.New("request to data failure")
@@ -273,20 +297,44 @@ func requestToData(request *http.Request, methodParams *[]reflect.Value, inType 
 		}
 		mp := make(map[string]interface{})
 		json.Unmarshal(buf, &mp)
-		return requiredJSON(obj, mp)
+		return dis.requiredJSON(writer, request, obj, mp, path)
 	} else {
 		// 其它-以 form 形式读取参数 【application/x-www-form-urlencoded】
 		request.ParseForm()
 		form := request.Form
 		var err error
-		if (*methodParams)[index], err = formToTypeValue(inType, form); nil != err {
+		if (*methodParams)[index], err = dis.formToTypeValue(writer, request, inType, form, path); nil != err {
 			return err
 		}
 	}
 	return nil
 }
 
-func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
+// InterceptXSS xss 拦截，当 error 返回不为 nil 时，打断这个分发
+func (dis *dispatcherHandler) InterceptXSS(writer http.ResponseWriter, request *http.Request, vs, json, path string) error {
+	if nil == dis.xSSFilter {
+		return nil
+	}
+	if dis.IsXSSPassUrl(path) {
+		return nil
+	}
+	hs := template.HTMLEscapeString(vs)
+	if len(hs) != len(vs) {
+		if dis.xSSFilter.InterceptXSS(json, vs, hs, writer, request) {
+			return errors.New("parameter invalid")
+		}
+	}
+
+	hs = template.JSEscapeString(vs)
+	if len(hs) != len(vs) {
+		if dis.xSSFilter.InterceptXSS(json, vs, hs, writer, request) {
+			return errors.New("parameter invalid")
+		}
+	}
+	return nil
+}
+
+func (dis *dispatcherHandler) requiredJSON(writer http.ResponseWriter, request *http.Request, bean reflect.Value, mp map[string]interface{}, path string) error {
 	beanElem := bean.Elem()
 	num := beanElem.NumField()
 	t := beanElem.Type()
@@ -303,6 +351,13 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 				field := beanElem.Field(i)
 				field.Set(reflect.ValueOf(strings.TrimSpace(field.String())))
 				val = strings.TrimSpace(val.(string))
+			}
+		}
+
+		// xss 过滤
+		if "string" == f.Type.Name() && isExist {
+			if e := dis.InterceptXSS(writer, request, val.(string), json, path); nil != e {
+				return e
 			}
 		}
 
@@ -371,17 +426,23 @@ func failure404(failure FailureResponseInterface, writer http.ResponseWriter, re
 	}
 }
 
+// formToTypeValue
 // map数据根据reflect.Type转为reflect.Value
 // fiType reflect.Type	类型,map、struct支持，其它都为string
 // form map[string][]string 数据源 如request.Form
 // reflect.Value	值
-func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Value, error) {
+func (dis *dispatcherHandler) formToTypeValue(writer http.ResponseWriter, request *http.Request, fiType reflect.Type, form map[string][]string, path string) (reflect.Value, error) {
 	fiTypeKind := fiType.Kind()
 	switch fiTypeKind {
 	case reflect.Map:
 		valMap := make(map[string]string, len(form))
 		for key, values := range form {
 			valMap[key] = stringArrayToString(values)
+
+			// xss 过滤
+			if e := dis.InterceptXSS(writer, request, valMap[key], key, path); nil != e {
+				return reflect.ValueOf(valMap), e
+			}
 		}
 		return reflect.ValueOf(valMap), nil
 	case reflect.Struct:
@@ -414,6 +475,13 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Val
 				trimSpace := tf.Tag.Get("trimSpace")
 				if "false" != trimSpace {
 					sv = strings.TrimSpace(sv)
+				}
+			}
+
+			// xss 过滤
+			if "string" == tf.Type.Name() {
+				if e := dis.InterceptXSS(writer, request, sv, tagJson, path); nil != e {
+					return stVal, e
 				}
 			}
 
@@ -462,8 +530,12 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Val
 		return stVal.Elem(), nil
 	default:
 		vaList := ""
-		for _, values := range form {
+		for key, values := range form {
 			vaList = stringArrayToString(values)
+			// xss 过滤
+			if e := dis.InterceptXSS(writer, request, vaList, key, path); nil != e {
+				return reflect.ValueOf(vaList), e
+			}
 		}
 		return reflect.ValueOf(vaList), nil
 	}
