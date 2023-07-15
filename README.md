@@ -5,7 +5,7 @@
     基于 go http 封装 简洁的web服务器框架
     无须任何外部依赖，只需导入 winterMVC    
 
-    go get github.com/PandaManPMC/winterMVC@v1.0.13
+    go get github.com/PandaManPMC/winterMVC@v1.0.18
 
 
 > 结构体字符串参数
@@ -13,14 +13,14 @@
     其中 min 只作用于 required 参数，max 则可以作用于非 required 参数。
 > - 默认去除字符串参数的首尾空格，可以通过 tag 指定 trimSpace:"false" 来取消自动去除首尾空格，需要注意的是，min 和 max 是在这个操作之后执行的。
 
-### 1.0.17 
+### 1.0.18 
 
-> 增加字符串类型 XSS 过滤选项，开启 XSS 过滤时会对接口进行 XSS 过滤。
-> - 实现 XSSFilterInterface 接口，配置拦截器
+> 增加字符串类型过滤器，例如添加 XSS 过滤选项对字符参数进行 XSS 过滤。
+> - 实现 StringFilterInterface 接口，配置拦截器
 > - 如 example 中的 XSSFilterImplements
 
 ```
-    mvc.SetXSSFilterInterface(&XSSFilterImplements{})
+    mvc.SetStringFilterInterface(&XSSFilterImplements{})
 ```
 
 ### 1.0.13
