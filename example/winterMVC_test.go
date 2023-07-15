@@ -59,7 +59,7 @@ func TestMVC(t *testing.T) {
 	//	POST 测试 Content-Type application/json
 	//	http://localhost:7080/example/test/QueryListStruct
 	//	{"name":"<img src='http://google.com?token=abc'/>","age":0,"activity":true,"fighting":33.55,"inDate":"2022-08-31T09:08:29.837820+00:00"}
-	mvc.SetXSSFilterInterface(&XSSFilterImplements{})
+	mvc.SetStringFilterInterface(&XSSFilterImplements{})
 
 	//	启动http服务 方式1
 	//http.HandleFunc("/winterMvc/", mvc.HandlerFun())
