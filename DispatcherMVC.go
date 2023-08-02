@@ -110,10 +110,10 @@ func deferRecover(dis *dispatcherHandler, writer http.ResponseWriter, request *h
 	if nil == err {
 		return
 	}
-	logError("deferRecover", err)
 	if nil != dis.failure {
-		dis.failure.Failure500(writer, request)
+		dis.failure.Failure500(writer, request, err)
 	} else {
+		logError("deferRecover", err)
 		writer.Write([]byte("SERVER: ERROR！"))
 	}
 }
@@ -136,7 +136,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 		if 3 > len(urlSplit) {
 			logInfo(fmt.Sprintf("path :[ %s ] 3 > len(urlSplit) unable to parse ", path))
 			if nil != dis.failure {
-				dis.failure.Failure500(writer, request)
+				dis.failure.Failure500(writer, request, errors.New("route error"))
 			} else {
 				writer.Write([]byte("Handler: ERROR URL FAIL！"))
 			}
@@ -152,7 +152,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 			if 4 > len(urlSplit) {
 				logInfo(fmt.Sprintf("path :[ %s ] 4 > len(urlSplit) unable to parse ", path))
 				if nil != dis.failure {
-					dis.failure.Failure500(writer, request)
+					dis.failure.Failure500(writer, request, errors.New("route error"))
 				} else {
 					writer.Write([]byte("Handler: ERROR URL FAIL！"))
 				}
