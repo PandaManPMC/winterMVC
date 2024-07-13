@@ -1,3 +1,3 @@
 module "github.com/PandaManPMC/winterMVC"
 
-go 1.17
+go 1.19

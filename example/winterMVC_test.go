@@ -31,6 +31,8 @@ func TestMVC(t *testing.T) {
 	testC := GetInstanceByTestCtrl()
 	//	存入控制器
 	mvc.RouteCtrl(projectPrefix, "test", testC)
+	//	http://localhost:7080/v2/example/test2/GetList
+	mvc.RouteCtrl("v2/example", "test2", GetInstanceByTest2Ctrl())
 
 	//	配置拦截器
 	var inter myInterceptor
@@ -50,6 +52,14 @@ func TestMVC(t *testing.T) {
 
 	//	参数封装错误回调
 	mvc.SetParameterError(&ParameterErrorImp{})
+
+	// xss
+	// 测试 http://localhost:7080/example/test/QueryListStruct?name=%3Cscript%3Ealert(1)%3C/script%3E&age=99&activity=true&fighting=33.55&inDate=2022-08-31T09:08:29.837820+00:00
+
+	//	POST 测试 Content-Type application/json
+	//	http://localhost:7080/example/test/QueryListStruct
+	//	{"name":"<img src='http://google.com?token=abc'/>","age":0,"activity":true,"fighting":33.55,"inDate":"2022-08-31T09:08:29.837820+00:00"}
+	mvc.SetStringFilterInterface(&XSSFilterImplements{})
 
 	//	启动http服务 方式1
 	//http.HandleFunc("/winterMvc/", mvc.HandlerFun())

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-//	dispatcherHandler 核心控制器，接收请求分发处理
+// dispatcherHandler 核心控制器，接收请求分发处理
 type dispatcherHandler struct {
 	routeMapping              map[string]map[string]interface{}
 	handlerInterceptorMapping map[string]HandlerInterceptorInterface
@@ -20,6 +20,7 @@ type dispatcherHandler struct {
 	failure                   FailureResponseInterface
 	logs                      LogsInterface
 	parameterError            ParameterErrorInterface
+	stringFilter              StringFilterInterface // 字符串参数过滤回调，如果没有设置则默认不拦截
 }
 
 var dispatcherHandlerInstance dispatcherHandler
@@ -29,18 +30,23 @@ func init() {
 	dispatcherHandlerInstance.handlerInterceptorMapping = make(map[string]HandlerInterceptorInterface)
 }
 
-//	GetInstanceByDispatcherHandler 获取 MVC 实例
-//	dispatcherHandler 实例指针
-//	获得dispatcherHandler 初始化MVC
-//	初始化方式1	http.HandleFunc("/projectRoute/", winter-mvc-core.HandlerFun())
-//	初始化方式2	server := http.Server{ Handler: winter_mvc_core.GetInstanceByDispatcherHandler(), ...
+// GetInstanceByDispatcherHandler 获取 MVC 实例
+// dispatcherHandler 实例指针
+// 获得dispatcherHandler 初始化MVC
+// 初始化方式1	http.HandleFunc("/projectRoute/", winter-mvc-core.HandlerFun())
+// 初始化方式2	server := http.Server{ Handler: winter_mvc_core.GetInstanceByDispatcherHandler(), ...
 func GetInstanceByDispatcherHandler() *dispatcherHandler {
 	return &dispatcherHandlerInstance
 }
 
-//	SetLogs 配置日志输出
+// SetLogs 配置日志输出
 func (dis *dispatcherHandler) SetLogs(log LogsInterface) {
 	dis.logs = log
+}
+
+// SetStringFilterInterface 设置 字符串 拦截接口
+func (dis *dispatcherHandler) SetStringFilterInterface(xf StringFilterInterface) {
+	dis.stringFilter = xf
 }
 
 func logInfo(msg string) {
@@ -55,10 +61,10 @@ func logError(msg string, err interface{}) {
 	}
 }
 
-//	RouteCtrl 配置控制器 (不是线程安全的)
-//	projectRoute	模块 url  Prefix
-//	ctrlRoute		控制器 url  ctrlPrefix
-//	ctrlInstance	控制器实例，可以是实例的指针或实例拷贝
+// RouteCtrl 配置控制器 (不是线程安全的)
+// projectRoute	模块 url  Prefix
+// ctrlRoute		控制器 url  ctrlPrefix
+// ctrlInstance	控制器实例，可以是实例的指针或实例拷贝
 func (dis *dispatcherHandler) RouteCtrl(projectRoute string, ctrlRoute string, ctrlInstance interface{}) {
 	if nil == dis.routeMapping[projectRoute] {
 		dis.routeMapping[projectRoute] = make(map[string]interface{})
@@ -66,55 +72,55 @@ func (dis *dispatcherHandler) RouteCtrl(projectRoute string, ctrlRoute string, c
 	dis.routeMapping[projectRoute][ctrlRoute] = ctrlInstance
 }
 
-//	RouteProjectInterceptor 为指定 projectRoute 配置拦截器
-//	每个 projectPrefix 只有一个拦截器
-//	拦截器在调用控制器之前调用BeforeHandler()，在之后调用AfterHandler()
+// RouteProjectInterceptor 为指定 projectRoute 配置拦截器
+// 每个 projectPrefix 只有一个拦截器
+// 拦截器在调用控制器之前调用BeforeHandler()，在之后调用AfterHandler()
 func (dis *dispatcherHandler) RouteProjectInterceptor(projectRoute string, handlerInterceptor HandlerInterceptorInterface) {
 	dis.handlerInterceptorMapping[projectRoute] = handlerInterceptor
 }
 
-//	SetHttpFilter 过滤器配置
-//	实现 HttpFilterInterface 接口
-//	过滤器只会在请求之初调用一次
+// SetHttpFilter 过滤器配置
+// 实现 HttpFilterInterface 接口
+// 过滤器只会在请求之初调用一次
 func (dis *dispatcherHandler) SetHttpFilter(filter HttpFilterInterface) {
 	dis.filter = filter
 }
 
-//	SetFailureResponse 出现错误时的失败响应
-//	404 处理
-//	500	处理
-//	实现	FailureResponseInterface 接口，出现错误回调Failure404()、Failure500()
+// SetFailureResponse 出现错误时的失败响应
+// 404 处理
+// 500	处理
+// 实现	FailureResponseInterface 接口，出现错误回调Failure404()、Failure500()
 func (dis *dispatcherHandler) SetFailureResponse(failure FailureResponseInterface) {
 	dis.failure = failure
 }
 
-//	SetParameterError 参数装载发生错误的回调
-//	callback ParameterErrorInterface 回调，实现 ParameterErrorInterface
+// SetParameterError 参数装载发生错误的回调
+// callback ParameterErrorInterface 回调，实现 ParameterErrorInterface
 func (dis *dispatcherHandler) SetParameterError(callback ParameterErrorInterface) {
 	dis.parameterError = callback
 }
 
-func (dis dispatcherHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func (dis *dispatcherHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	dis.HandlerFun()(writer, request)
 }
 
-//	deferRecover 异常捕获
+// deferRecover 异常捕获
 func deferRecover(dis *dispatcherHandler, writer http.ResponseWriter, request *http.Request) {
 	err := recover()
 	if nil == err {
 		return
 	}
-	logError("deferRecover", err)
 	if nil != dis.failure {
-		dis.failure.Failure500(writer, request)
+		dis.failure.Failure500(writer, request, err)
 	} else {
+		logError("deferRecover", err)
 		writer.Write([]byte("SERVER: ERROR！"))
 	}
 }
 
-//	HandlerFun 请求转发
-//	调用顺序 ： 接收请求 ——> 过滤器 ->	拦截器BeforeHandler() -> 处理请求的控制器ctrl -> 拦截器AfterHandler()
-//	请求路径寻找 ： uri/projectRoute/ctrlRoute/ctrlInstance方法名
+// HandlerFun 请求转发
+// 调用顺序 ： 接收请求 ——> 过滤器 ->	拦截器BeforeHandler() -> 处理请求的控制器ctrl -> 拦截器AfterHandler()
+// 请求路径寻找 ： uri/projectRoute/ctrlRoute/ctrlInstance方法名
 func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, request *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		defer deferRecover(dis, writer, request)
@@ -130,7 +136,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 		if 3 > len(urlSplit) {
 			logInfo(fmt.Sprintf("path :[ %s ] 3 > len(urlSplit) unable to parse ", path))
 			if nil != dis.failure {
-				dis.failure.Failure500(writer, request)
+				dis.failure.Failure500(writer, request, errors.New("route error"))
 			} else {
 				writer.Write([]byte("Handler: ERROR URL FAIL！"))
 			}
@@ -141,6 +147,21 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 		}
 
 		projectUrl := urlSplit[0]
+		// v 开头之后数字，则合并 urlSplit[0]/urlSplit[1]
+		if MustCompileVersion(projectUrl) {
+			if 4 > len(urlSplit) {
+				logInfo(fmt.Sprintf("path :[ %s ] 4 > len(urlSplit) unable to parse ", path))
+				if nil != dis.failure {
+					dis.failure.Failure500(writer, request, errors.New("route error"))
+				} else {
+					writer.Write([]byte("Handler: ERROR URL FAIL！"))
+				}
+				return
+			}
+			projectUrl = fmt.Sprintf("%s/%s", urlSplit[0], urlSplit[1])
+			urlSplit = urlSplit[1:]
+		}
+
 		interceptor := dis.handlerInterceptorMapping[projectUrl]
 		if nil != interceptor {
 			flag, data := interceptor.BeforeHandler(writer, request)
@@ -191,7 +212,7 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 		methodParams := make([]reflect.Value, numIn)
 
 		if 0 != numIn {
-			if err := requestParams(writer, request, &methodParams, refMtdType); nil != err {
+			if err := dis.requestParams(writer, request, &methodParams, refMtdType, path); nil != err {
 				logError(err.Error(), nil)
 				if nil != dis.parameterError {
 					dis.parameterError.ParameterError(writer, request, err)
@@ -218,8 +239,8 @@ func (dis *dispatcherHandler) HandlerFun() func(writer http.ResponseWriter, requ
 	}
 }
 
-//	requestParams 请求参数封装
-func requestParams(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, refMtdType reflect.Type) error {
+// requestParams 请求参数封装
+func (dis *dispatcherHandler) requestParams(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, refMtdType reflect.Type, path string) error {
 	for i := 0; i < refMtdType.NumIn(); i++ {
 		inType := refMtdType.In(i)
 		switch inType.String() {
@@ -228,7 +249,7 @@ func requestParams(writer http.ResponseWriter, request *http.Request, methodPara
 		case "http.ResponseWriter":
 			(*methodParams)[i] = reflect.ValueOf(writer)
 		default:
-			if err := requestToData(request, methodParams, inType, i); nil != err {
+			if err := dis.requestToData(writer, request, methodParams, inType, i, path); nil != err {
 				return err
 			}
 		}
@@ -237,11 +258,11 @@ func requestParams(writer http.ResponseWriter, request *http.Request, methodPara
 }
 
 // requestToData request 中参数封装进结构体或 map，支持 Content-Type 【application/json || application/x-www-form-urlencoded】
-func requestToData(request *http.Request, methodParams *[]reflect.Value, inType reflect.Type, index int) error {
+func (dis *dispatcherHandler) requestToData(writer http.ResponseWriter, request *http.Request, methodParams *[]reflect.Value, inType reflect.Type, index int, path string) error {
 	if ContentTypeIsJSON(request) {
 		// 以 【application/json】
 		defer request.Body.Close()
-		buf, err := ioutil.ReadAll(request.Body)
+		buf, err := io.ReadAll(request.Body)
 		if nil != err {
 			logError("requestToData", err)
 			return errors.New("request to data failure")
@@ -258,20 +279,31 @@ func requestToData(request *http.Request, methodParams *[]reflect.Value, inType 
 		}
 		mp := make(map[string]interface{})
 		json.Unmarshal(buf, &mp)
-		return requiredJSON(obj, mp)
+		return dis.requiredJSON(writer, request, obj, mp)
 	} else {
 		// 其它-以 form 形式读取参数 【application/x-www-form-urlencoded】
 		request.ParseForm()
 		form := request.Form
 		var err error
-		if (*methodParams)[index], err = formToTypeValue(inType, form); nil != err {
+		if (*methodParams)[index], err = dis.formToTypeValue(writer, request, inType, form); nil != err {
 			return err
 		}
 	}
 	return nil
 }
 
-func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
+// InterceptString 字符串参数拦截，当 error 返回不为 nil 时，打断这个分发
+func (dis *dispatcherHandler) InterceptString(writer http.ResponseWriter, request *http.Request, value, key string) error {
+	if nil == dis.stringFilter {
+		return nil
+	}
+	if dis.stringFilter.Intercept(key, value, writer, request) {
+		return errors.New("parameter invalid")
+	}
+	return nil
+}
+
+func (dis *dispatcherHandler) requiredJSON(writer http.ResponseWriter, request *http.Request, bean reflect.Value, mp map[string]interface{}) error {
 	beanElem := bean.Elem()
 	num := beanElem.NumField()
 	t := beanElem.Type()
@@ -288,6 +320,13 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 				field := beanElem.Field(i)
 				field.Set(reflect.ValueOf(strings.TrimSpace(field.String())))
 				val = strings.TrimSpace(val.(string))
+			}
+		}
+
+		// xss 过滤
+		if "string" == f.Type.Name() && isExist {
+			if e := dis.InterceptString(writer, request, val.(string), json); nil != e {
+				return e
 			}
 		}
 
@@ -327,7 +366,7 @@ func requiredJSON(bean reflect.Value, mp map[string]interface{}) error {
 	return nil
 }
 
-//	StringToCharacterLen 获取字符串准确字符长度，而非字节长度
+// StringToCharacterLen 获取字符串准确字符长度，而非字节长度
 func StringToCharacterLen(s string) int {
 	return len([]rune(s))
 }
@@ -356,17 +395,23 @@ func failure404(failure FailureResponseInterface, writer http.ResponseWriter, re
 	}
 }
 
-//	map数据根据reflect.Type转为reflect.Value
-//	fiType reflect.Type	类型,map、struct支持，其它都为string
-//	form map[string][]string 数据源 如request.Form
-//	reflect.Value	值
-func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Value, error) {
+// formToTypeValue
+// map数据根据reflect.Type转为reflect.Value
+// fiType reflect.Type	类型,map、struct支持，其它都为string
+// form map[string][]string 数据源 如request.Form
+// reflect.Value	值
+func (dis *dispatcherHandler) formToTypeValue(writer http.ResponseWriter, request *http.Request, fiType reflect.Type, form map[string][]string) (reflect.Value, error) {
 	fiTypeKind := fiType.Kind()
 	switch fiTypeKind {
 	case reflect.Map:
 		valMap := make(map[string]string, len(form))
 		for key, values := range form {
 			valMap[key] = stringArrayToString(values)
+
+			// xss 过滤
+			if e := dis.InterceptString(writer, request, valMap[key], key); nil != e {
+				return reflect.ValueOf(valMap), e
+			}
 		}
 		return reflect.ValueOf(valMap), nil
 	case reflect.Struct:
@@ -399,6 +444,13 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Val
 				trimSpace := tf.Tag.Get("trimSpace")
 				if "false" != trimSpace {
 					sv = strings.TrimSpace(sv)
+				}
+			}
+
+			// xss 过滤
+			if "string" == tf.Type.Name() {
+				if e := dis.InterceptString(writer, request, sv, tagJson); nil != e {
+					return stVal, e
 				}
 			}
 
@@ -447,17 +499,21 @@ func formToTypeValue(fiType reflect.Type, form map[string][]string) (reflect.Val
 		return stVal.Elem(), nil
 	default:
 		vaList := ""
-		for _, values := range form {
+		for key, values := range form {
 			vaList = stringArrayToString(values)
+			// xss 过滤
+			if e := dis.InterceptString(writer, request, vaList, key); nil != e {
+				return reflect.ValueOf(vaList), e
+			}
 		}
 		return reflect.ValueOf(vaList), nil
 	}
 }
 
-//	将string参数转为typeStr指定类型的值
-//	typeStr string	类型字串	支持int、float、bool、Time
-//	valueStr string	值
-//	interface{}	为 nil则失败
+// 将string参数转为typeStr指定类型的值
+// typeStr string	类型字串	支持int、float、bool、Time
+// valueStr string	值
+// interface{}	为 nil则失败
 func stringToType(typeStr string, valueStr string) interface{} {
 	var data interface{}
 	var e error
@@ -583,9 +639,9 @@ func stringToType(typeStr string, valueStr string) interface{} {
 	return data
 }
 
-//	字串数组转字串，以,拼接
-//	strArr []string	字串数组
-//	string	以【】间隔的值
+// 字串数组转字串，以,拼接
+// strArr []string	字串数组
+// string	以【】间隔的值
 func stringArrayToString(strArr []string) string {
 	str := ""
 	for inx, _ := range strArr {
