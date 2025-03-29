@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // dispatcherHandler 核心控制器，接收请求分发处理
@@ -264,12 +263,12 @@ func (dis *dispatcherHandler) requestToData(writer http.ResponseWriter, request 
 		defer request.Body.Close()
 		buf, err := io.ReadAll(request.Body)
 		if nil != err {
-			logError("requestToData", err)
+			logError(fmt.Sprintf("requestToData=%s", string(buf)), err)
 			return errors.New("request to data failure")
 		}
 		obj := reflect.New(inType)
 		if err := json.Unmarshal(buf, obj.Interface()); nil != err {
-			logError("requestToData", err)
+			logError(fmt.Sprintf("requestToData=%s", string(buf)), err)
 			return errors.New("request to json Unmarshal data failure")
 		}
 		(*methodParams)[index] = obj.Elem()
@@ -335,12 +334,12 @@ func (dis *dispatcherHandler) requiredJSON(writer http.ResponseWriter, request *
 			if !isExist {
 				return errors.New(fmt.Sprintf("missing required parameters by 【%s】", json))
 			}
-			min := f.Tag.Get("min")
-			if "" != min {
+			mi := f.Tag.Get("min")
+			if "" != mi {
 				// 最小值，作用于字符串长度
 				if "string" == f.Type.Name() {
 					s := val.(string)
-					minLen, _ := strconv.Atoi(min)
+					minLen, _ := strconv.Atoi(mi)
 					if minLen > StringToCharacterLen(s) {
 						return errors.New(fmt.Sprintf("Parameter 【%s】 minimum length of %d, your %d", json, minLen, StringToCharacterLen(s)))
 					}
@@ -352,11 +351,11 @@ func (dis *dispatcherHandler) requiredJSON(writer http.ResponseWriter, request *
 			continue
 		}
 		// 最大值，作用于字符串即字符最大长度
-		max := f.Tag.Get("max")
-		if "" != max {
+		ma := f.Tag.Get("max")
+		if "" != ma {
 			if "string" == f.Type.Name() {
 				s := val.(string)
-				maxLen, _ := strconv.Atoi(max)
+				maxLen, _ := strconv.Atoi(ma)
 				if maxLen < StringToCharacterLen(s) {
 					return errors.New(fmt.Sprintf("parameter 【%s】 maximum length %d, yours %d", json, maxLen, StringToCharacterLen(s)))
 				}
@@ -456,19 +455,19 @@ func (dis *dispatcherHandler) formToTypeValue(writer http.ResponseWriter, reques
 
 			// 字符串类型校验长度
 			if "true" == required && "string" == tf.Type.Name() {
-				min := tf.Tag.Get("min")
-				if "" != min {
-					minLen, _ := strconv.Atoi(min)
+				mi := tf.Tag.Get("min")
+				if "" != mi {
+					minLen, _ := strconv.Atoi(mi)
 					if minLen > StringToCharacterLen(sv) {
 						return stVal, errors.New(fmt.Sprintf("Parameter 【%s】 minimum length of %d, your %d", tagJson, minLen, StringToCharacterLen(sv)))
 					}
 				}
 			}
 
-			max := tf.Tag.Get("max")
-			if "" != max {
+			ma := tf.Tag.Get("max")
+			if "" != ma {
 				if "string" == tf.Type.Name() {
-					maxLen, _ := strconv.Atoi(max)
+					maxLen, _ := strconv.Atoi(ma)
 					if maxLen < StringToCharacterLen(sv) {
 						return stVal, errors.New(fmt.Sprintf("parameter 【%s】 maximum length %d, yours %d", tagJson, maxLen, StringToCharacterLen(sv)))
 					}
@@ -508,148 +507,4 @@ func (dis *dispatcherHandler) formToTypeValue(writer http.ResponseWriter, reques
 		}
 		return reflect.ValueOf(vaList), nil
 	}
-}
-
-// 将string参数转为typeStr指定类型的值
-// typeStr string	类型字串	支持int、float、bool、Time
-// valueStr string	值
-// interface{}	为 nil则失败
-func stringToType(typeStr string, valueStr string) interface{} {
-	var data interface{}
-	var e error
-	switch typeStr {
-	case "int":
-		if "" == valueStr {
-			return 0
-		}
-		data, e = strconv.Atoi(valueStr)
-	case "uint":
-		if "" == valueStr {
-			return uint(0)
-		}
-		val, e1 := strconv.Atoi(valueStr)
-		if nil == e1 {
-			data = uint(val)
-		} else {
-			e = e1
-			data = val
-		}
-	case "int8":
-		if "" == valueStr {
-			return int8(0)
-		}
-		data, e = strconv.ParseInt(valueStr, 10, 8)
-		if nil == e {
-			data = int8(data.(int64))
-		}
-	case "uint8":
-		if "" == valueStr {
-			return uint8(0)
-		}
-		data, e = strconv.ParseUint(valueStr, 10, 8)
-		if nil == e {
-			data = uint8(data.(uint64))
-		}
-	case "int16":
-		if "" == valueStr {
-			return int16(0)
-		}
-		data, e = strconv.ParseInt(valueStr, 10, 16)
-		if nil == e {
-			data = int16(data.(int64))
-		}
-	case "uint16":
-		if "" == valueStr {
-			return uint16(0)
-		}
-		data, e = strconv.ParseUint(valueStr, 10, 16)
-		if nil == e {
-			data = uint16(data.(uint64))
-		}
-	case "int32":
-		if "" == valueStr {
-			return int32(0)
-		}
-		data, e = strconv.ParseInt(valueStr, 10, 32)
-		if nil == e {
-			data = int32(data.(int64))
-		}
-	case "uint32":
-		if "" == valueStr {
-			return uint32(0)
-		}
-		data, e = strconv.ParseUint(valueStr, 10, 32)
-		if nil == e {
-			data = uint32(data.(uint64))
-		}
-	case "int64":
-		if "" == valueStr {
-			return int64(0)
-		}
-		data, e = strconv.ParseInt(valueStr, 10, 64)
-	case "uint64":
-		if "" == valueStr {
-			return uint64(0)
-		}
-		data, e = strconv.ParseUint(valueStr, 10, 64)
-	case "bool":
-		if "" == valueStr {
-			return false
-		}
-		data, e = strconv.ParseBool(valueStr)
-	case "float32":
-		if "" == valueStr {
-			return 0
-		}
-		data, e = strconv.ParseFloat(valueStr, 32)
-		if nil == e {
-			data = float32(data.(float64))
-		}
-	case "float64":
-		if "" == valueStr {
-			return 0
-		}
-		data, e = strconv.ParseFloat(valueStr, 64)
-	case "string":
-		if "" == valueStr {
-			return ""
-		}
-		data = valueStr
-	case "Time":
-		if 10 == len(valueStr) {
-			data, e = time.Parse("2006-01-02", valueStr)
-		} else if 13 == len(valueStr) {
-			data, e = time.Parse("2006-01-02 15", valueStr)
-		} else if 16 == len(valueStr) {
-			data, e = time.Parse("2006-01-02 15:04", valueStr)
-		} else if 19 == len(valueStr) {
-			data, e = time.Parse("2006-01-02 15:04:05", valueStr)
-		} else {
-			//data, e = time.Parse("2006-01-02'T'15:04:05.999 Z", valueStr)
-		}
-		if nil != e {
-			e = nil
-			data = time.Now()
-		}
-	}
-	if nil != e {
-		logError("stringToType", e)
-		return nil
-	}
-	return data
-}
-
-// 字串数组转字串，以,拼接
-// strArr []string	字串数组
-// string	以【】间隔的值
-func stringArrayToString(strArr []string) string {
-	str := ""
-	for inx, _ := range strArr {
-		if 0 == inx {
-			str = strArr[inx]
-			continue
-		}
-		str = fmt.Sprintf("%s【】%s", str, strArr[inx])
-	}
-	return str
 }
